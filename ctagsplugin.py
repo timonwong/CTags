@@ -27,7 +27,7 @@ from sublime import status_message
 
 # Ctags
 import ctags
-from ctags import (FILENAME, parse_tag_lines, PATH_ORDER, SYMBOL, Tag, TagFile)
+from ctags import (FILENAME, parse_tag_lines, PATH_ORDER, SYMBOL, MATCHES_STARTWITH, Tag, TagFile)
 
 ################################### SETTINGS ###################################
 
@@ -680,16 +680,22 @@ class rebuild_tags(sublime_plugin.TextCommand):
 class CTagsAutoComplete(sublime_plugin.EventListener):
     def on_query_completions(self, view, prefix, locations):
         if setting('autocomplete'):
-            tags_path = view.window().folders()[0]+"/.tags"
-            results=[]
-            if (not view.window().folders() or not os.path.exists(tags_path)): #check if a project is open and the .tags file exists
-                return results
-            f=os.popen("grep -i '^"+prefix+"' '"+tags_path+"' | awk '{ print $1 }'") # grep tags from project directory .tags file
-            for i in f.readlines():
-                results.append([i.strip()])
-            results = [(item,item) for sublist in results for item in sublist] #flatten
-            results = list(set(results)) # make unique
-            results.sort() # sort
+            tags_path = find_tags_relative_to(view.file_name())
+            if not tags_path or not os.path.exists(tags_path):  # check if a project is open and the .tags file exists
+                return []
+            results = []
+            if sublime.platform() == 'windows':
+                # Windows is lack of `grep' and `awk'
+                tag_file = TagFile(tags_path, SYMBOL, MATCHES_STARTWITH)
+                results = [(a, a) for a in tag_file.get_tags_dict(prefix[0])]
+            else:
+                # grep tags from project directory .tags file
+                f = os.popen("grep -i '^%s' '%s' | awk '{ print $1 }'" % (prefix, tags_path))
+                for i in f.readlines():
+                    s = i.strip()
+                    results.append((s, s))
+            results = list(set(results))  # make unique
+            results.sort()  # sort
             return results
 
 ##################################### TEST #####################################
