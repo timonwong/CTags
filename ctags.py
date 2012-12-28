@@ -57,7 +57,12 @@ def parse_tag_lines(lines, order_by='symbol', tag_class=None, filters=[]):
     tags_lookup = {}
 
     for l in lines:
-        search_obj = TAGS_RE.search(l.decode('utf8'))
+        try:
+            search_obj = TAGS_RE.search(l.decode('utf8'))
+        except UnicodeDecodeError:
+            import locale
+            encoding = locale.getpreferredencoding()
+            search_obj = TAGS_RE.search(l.decode(encoding, 'replace'))
         if not search_obj:
             continue
 
